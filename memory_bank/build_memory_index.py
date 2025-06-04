@@ -6,11 +6,42 @@ from llama_index import LLMPredictor, GPTSimpleVectorIndex, PromptHelper, Servic
 # from langchain import OpenAI, AzureOpenAI
 from langchain.llms import AzureOpenAI,OpenAIChat
 import os
-# language = 'en'
-openai.api_key = os.environ["OPENAI_API_KEY"]
-# os.environ["OPENAI_API_BASE"] = openai.api_base
-# define LLM
-llm_predictor = LLMPredictor(llm=OpenAIChat(model_name="gpt-3.5-turbo"))
+from typing import Optional, List
+from openai import OpenAI
+from langchain.llms.base import LLM
+
+# 自定义OpenAI API参数
+custom_api_key = os.environ["UIH_DS_API_KEY"]
+custom_base_url = os.environ["UIH_DS_BASE_URL"]
+custom_model = "DeepSeek-V3-0324"
+custom_temperature = 0.6
+
+# 创建OpenAI客户端
+client = OpenAI(
+    api_key=custom_api_key,
+    base_url=custom_base_url,
+)
+
+# 定义自定义LLM包装器
+class CustomOpenAILLM(LLM):
+    model: str = custom_model
+    temperature: float = custom_temperature
+    client: OpenAI = client
+
+    def _call(self, prompt: str, stop: Optional[List[str]] = None, **kwargs) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            stop=stop,
+        )
+        return response.choices[0].message.content
+
+    @property
+    def _llm_type(self) -> str:
+        return "deepseek"
+    
+llm_predictor = LLMPredictor(llm=CustomOpenAILLM())
 
 # define prompt helper
 # set maximum input size
@@ -52,7 +83,7 @@ def generate_memory_docs(data,language):
 index_set = {}
 def build_memory_index(all_user_memories,data_args,name=None):
     all_user_memories = generate_memory_docs(all_user_memories,data_args.language)
-    llm_predictor = LLMPredictor(llm=OpenAIChat(model_name="gpt-3.5-turbo"))
+    #llm_predictor = LLMPredictor(llm=OpenAIChat(model_name="gpt-3.5-turbo"))
     prompt_helper = PromptHelper(max_input_size, num_output, max_chunk_overlap)
     service_context = ServiceContext.from_defaults(llm_predictor=llm_predictor, prompt_helper=prompt_helper)
     for user_name, memories in all_user_memories.items():

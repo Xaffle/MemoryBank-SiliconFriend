@@ -5,12 +5,26 @@ sys.path.append('../memory_bank')
 import openai, json, os
 import argparse
 import copy
+from openai import OpenAI
+
+# 自定义OpenAI API参数
+custom_api_key = os.environ["UIH_DS_API_KEY"]
+custom_base_url = os.environ["UIH_DS_BASE_URL"]
+custom_model = "DeepSeek-V3-0324"
+custom_temperature = 0.6
+
+# 创建OpenAI客户端
+client = OpenAI(
+    api_key=custom_api_key,
+    base_url=custom_base_url,
+)
 
 class LLMClientSimple:
 
     def __init__(self,gen_config=None):
-        
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        client: OpenAI = client
+
+        #openai.api_key = os.getenv("OPENAI_API_KEY")
         
         self.disable_tqdm = False
         self.gen_config = gen_config 
@@ -35,7 +49,7 @@ class LLMClientSimple:
                     {"role": "user", "content": "Hello! Please help me summarize the content of the conversation."},
                     {"role": "system", "content": "Sure, I will do my best to assist you."},
                     {"role": "user", "content": f"{prompt}"}]
-                response = openai.ChatCompletion.create(
+                response = self.client.ChatCompletion.create(
                     **request, messages=message)
                 # print(prompt)
             except Exception as e:
@@ -107,6 +121,25 @@ def summarize_person_prompt(content,user_name,boot_name,language):
 
 
 def summarize_memory(memory_dir,name=None,language='cn'):
+    """
+    总结指定用户的记忆内容，生成历史摘要和个性分析。
+    
+    该函数会读取指定路径的记忆文件，对用户的历史对话内容进行分析总结，生成每日摘要和个性分析，
+    并最终生成整体历史总结和整体个性分析，最后将更新后的记忆写回原文件。
+    
+    Args:
+        memory_dir (str): 记忆文件的路径
+        name (str, optional): 要处理的用户名，如果为None则处理所有用户。默认为None
+        language (str, optional): 生成摘要使用的语言，'cn'表示中文。默认为'cn'
+    
+    Returns:
+        dict: 更新后的完整记忆数据，包含新增的摘要和个性分析内容
+    
+    Note:
+        1. 如果某日的摘要或个性分析已存在，则不会重新生成
+        2. 生成的摘要和个性分析会添加到原始记忆数据结构中
+        3. 会为每个用户生成整体历史总结(overall_history)和整体个性分析(overall_personality)
+    """
     boot_name = 'AI'
     gen_prompt_num = 1
     memory = json.loads(open(memory_dir,'r',encoding='utf8').read())
@@ -148,8 +181,3 @@ def summarize_memory(memory_dir,name=None,language='cn'):
 
 if __name__ == '__main__':
     summarize_memory('../memories/eng_memory_cases.json',language='en')
-
-
-                
-
-
